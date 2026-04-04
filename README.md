@@ -1,167 +1,229 @@
-# Forum API — Garuda Game
+# Forum API 🚀
 
-RESTful API forum diskusi menggunakan **Hapi.js**, **PostgreSQL**, **Clean Architecture**, dan **Automation Testing**.
-
----
-
-## Fitur
-
-- ✅ Registrasi & Login Pengguna
-- ✅ Refresh Token & Logout
-- ✅ Menambahkan Thread
-- ✅ Melihat Detail Thread
-- ✅ Menambahkan & Menghapus Komentar
-- ✅ Menambahkan & Menghapus Balasan Komentar *(opsional)*
-- ✅ Soft Delete pada Komentar & Balasan
-- ✅ Unit Testing (Entities & Use Cases)
-- ✅ Integration Testing (Repositories)
-- ✅ Functional Testing (HTTP Server)
-- ✅ Clean Architecture (4 layer)
+RESTful API untuk platform diskusi **Garuda Game** — dibangun dengan **Node.js**, **Hapi.js**, **PostgreSQL**, dan menerapkan **Clean Architecture** serta **Automation Testing**.
 
 ---
 
-## Struktur Proyek
+## 📋 Deskripsi
+
+Forum API adalah backend service untuk aplikasi forum diskusi game online. API ini memungkinkan pengguna untuk membuat thread diskusi, memberikan komentar, dan membalas komentar dalam sebuah forum yang terstruktur.
+
+Project ini merupakan submission dari kursus **"Belajar Fundamental Aplikasi Back-End"** di [Dicoding Indonesia](https://www.dicoding.com).
+
+---
+
+## ✨ Fitur
+
+- 🔐 **Autentikasi** — Registrasi, Login, Refresh Token, Logout
+- 📝 **Thread** — Membuat dan melihat detail thread
+- 💬 **Komentar** — Menambah dan menghapus komentar pada thread
+- 💭 **Balasan** — Menambah dan menghapus balasan pada komentar
+- 🗑️ **Soft Delete** — Komentar dan balasan yang dihapus tetap tersimpan di database
+- ✅ **Automation Testing** — Unit, Integration, dan Functional test dengan 100% coverage
+
+---
+
+## 🏗️ Arsitektur
+
+Project ini menerapkan **Clean Architecture** dengan 4 layer:
 
 ```
-forum-api/
-├── migrations/                  # Database migrations
-├── src/
-│   ├── app.js                   # Entry point
-│   ├── Commons/exceptions/      # Custom error classes
-│   ├── Domains/                 # Entities & Repository interfaces
-│   │   ├── threads/
-│   │   ├── comments/
-│   │   ├── replies/
-│   │   └── users/
-│   ├── Applications/use_case/   # Business logic (Use Cases)
-│   ├── Infrastructure/          # Frameworks & Drivers
-│   │   ├── database/postgres/
-│   │   ├── http/                # Hapi server + DI container
-│   │   ├── repositories/        # PostgreSQL implementations
-│   │   └── security/            # JWT & Bcrypt
-│   └── Interfaces/http/api/     # Route handlers (Interface Adapters)
+src/
+├── Domains/              # Layer 1 - Entities & Repository Interfaces
+│   ├── users/
+│   ├── authentications/
+│   ├── threads/
+│   ├── comments/
+│   └── replies/
+├── Applications/         # Layer 2 - Use Cases (Business Logic)
+│   └── use_case/
+├── Interfaces/           # Layer 3 - Interface Adapters
+│   └── http/api/
 │       ├── users/
 │       ├── authentications/
 │       ├── threads/
 │       ├── comments/
 │       └── replies/
-└── tests/                       # Test helpers & DB pool
+└── Infrastructure/       # Layer 4 - Frameworks & Drivers
+    ├── database/
+    ├── http/
+    ├── repositories/
+    └── security/
 ```
 
 ---
 
-## Setup & Menjalankan
+## 🛠️ Tech Stack
 
-### 1. Prasyarat
+| Teknologi | Keterangan |
+|---|---|
+| **Node.js** | Runtime JavaScript |
+| **Hapi.js** | HTTP Framework |
+| **PostgreSQL** | Database |
+| **JWT (@hapi/jwt)** | Autentikasi Token |
+| **bcrypt** | Password Hashing |
+| **Jest** | Testing Framework |
+| **node-pg-migrate** | Database Migration |
 
-- Node.js v22 (LTS)
+---
+
+## 🚀 Cara Menjalankan
+
+### Prasyarat
+- Node.js v18+ (direkomendasikan v22 LTS)
 - PostgreSQL
 
-### 2. Install Dependencies
+### 1. Clone Repository
+```bash
+git clone https://github.com/USERNAME/forum-api.git
+cd forum-api
+```
 
+### 2. Install Dependencies
 ```bash
 npm install
 ```
 
-### 3. Buat Database
-
-```sql
--- Di psql
-CREATE DATABASE forumapi;
-CREATE DATABASE forumapi_test;
-```
-
-### 4. Konfigurasi Environment
-
-Salin dan sesuaikan `.env`:
-
-```bash
-cp .env .env.local
-```
-
-Isi nilai berikut di `.env`:
-
-```
+### 3. Konfigurasi Environment
+Buat file `.env` di root project:
+```env
 HOST=localhost
 PORT=5000
 NODE_ENV=development
 
+# Database utama
 PGHOST=localhost
 PGPORT=5432
 PGDATABASE=forumapi
 PGUSER=postgres
-PGPASSWORD=<password_anda>
+PGPASSWORD=your_password
 
+# Database test
 PGHOST_TEST=localhost
 PGPORT_TEST=5432
 PGDATABASE_TEST=forumapi_test
 PGUSER_TEST=postgres
-PGPASSWORD_TEST=<password_anda>
+PGPASSWORD_TEST=your_password
 
-ACCESS_TOKEN_KEY=<random_string_min_32_karakter>
-REFRESH_TOKEN_KEY=<random_string_min_32_karakter>
+# Token
+ACCESS_TOKEN_KEY=your_access_token_secret_key_min_32_chars
+REFRESH_TOKEN_KEY=your_refresh_token_secret_key_min_32_chars
 ACCESS_TOKEN_AGE=900
 ```
 
-### 5. Jalankan Migrasi
-
+### 4. Buat Database
 ```bash
-# Database utama
-npm run migrate
+psql -U postgres -c "CREATE DATABASE forumapi;"
+psql -U postgres -c "CREATE DATABASE forumapi_test;"
+```
 
-# Database test
-npm run migrate:test
+### 5. Jalankan Migrasi
+```bash
+npm run migrate        # database utama
+npm run migrate:test   # database test
 ```
 
 ### 6. Jalankan Server
-
 ```bash
-npm start
-# atau untuk development dengan auto-reload:
-npm run dev
+npm start       # production
+npm run dev     # development (auto-reload)
 ```
 
-### 7. Jalankan Tests
+Server berjalan di: `http://localhost:5000`
+
+---
+
+## 🧪 Testing
 
 ```bash
 npm test
 ```
 
+| Metric | Coverage |
+|---|---|
+| Statements | 100% |
+| Branches | 100% |
+| Functions | 100% |
+| Lines | 100% |
+
 ---
 
-## Endpoint API
+## 📡 Endpoint API
 
-| Method | Path | Auth | Keterangan |
-|--------|------|------|------------|
-| POST | `/users` | - | Registrasi pengguna |
-| POST | `/authentications` | - | Login |
-| PUT | `/authentications` | - | Refresh access token |
-| DELETE | `/authentications` | - | Logout |
-| POST | `/threads` | ✅ | Tambah thread |
-| GET | `/threads/{threadId}` | - | Detail thread |
+### Users
+| Method | Endpoint | Keterangan |
+|---|---|---|
+| POST | `/users` | Registrasi pengguna |
+
+### Authentications
+| Method | Endpoint | Keterangan |
+|---|---|---|
+| POST | `/authentications` | Login |
+| PUT | `/authentications` | Refresh access token |
+| DELETE | `/authentications` | Logout |
+
+### Threads
+| Method | Endpoint | Auth | Keterangan |
+|---|---|---|---|
+| POST | `/threads` | ✅ | Buat thread baru |
+| GET | `/threads/{threadId}` | ❌ | Lihat detail thread |
+
+### Comments
+| Method | Endpoint | Auth | Keterangan |
+|---|---|---|---|
 | POST | `/threads/{threadId}/comments` | ✅ | Tambah komentar |
 | DELETE | `/threads/{threadId}/comments/{commentId}` | ✅ | Hapus komentar |
+
+### Replies
+| Method | Endpoint | Auth | Keterangan |
+|---|---|---|---|
 | POST | `/threads/{threadId}/comments/{commentId}/replies` | ✅ | Tambah balasan |
 | DELETE | `/threads/{threadId}/comments/{commentId}/replies/{replyId}` | ✅ | Hapus balasan |
 
 ---
 
-## Clean Architecture
+## 📄 Contoh Response
 
-```
-Entities       →  Domain objects dengan validasi (Thread, Comment, Reply, dll.)
-Use Cases      →  Alur bisnis (AddThreadUseCase, DeleteCommentUseCase, dll.)
-Repositories   →  Interface adapter antara Use Case dan database
-HTTP Handlers  →  Interface adapter antara HTTP request dan Use Case
-Frameworks     →  Hapi.js (HTTP) + PostgreSQL (database)
+### GET /threads/{threadId}
+```json
+{
+  "status": "success",
+  "data": {
+    "thread": {
+      "id": "thread-123",
+      "title": "sebuah thread",
+      "body": "sebuah body thread",
+      "date": "2021-08-08T07:19:09.775Z",
+      "username": "dicoding",
+      "comments": [
+        {
+          "id": "comment-123",
+          "username": "johndoe",
+          "date": "2021-08-08T07:22:33.555Z",
+          "replies": [],
+          "content": "sebuah komentar"
+        },
+        {
+          "id": "comment-456",
+          "username": "dicoding",
+          "date": "2021-08-08T07:26:21.338Z",
+          "replies": [],
+          "content": "**komentar telah dihapus**"
+        }
+      ]
+    }
+  }
+}
 ```
 
 ---
 
-## Catatan Teknis
+## 👤 Author
 
-- Komentar & balasan dihapus secara **soft delete** (kolom `is_delete`)
-- Komentar dihapus ditampilkan sebagai `**komentar telah dihapus**`
-- Balasan dihapus ditampilkan sebagai `**balasan telah dihapus**`
-- Komentar & balasan diurutkan **ascending** berdasarkan tanggal
-- Autentikasi dilakukan di level **handler** (Interface), bukan Use Case
+**Rahmat** — Dicoding Student
+
+---
+
+## 📝 Lisensi
+
+Project ini dibuat untuk keperluan submission kursus Dicoding.
