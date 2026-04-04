@@ -1,0 +1,41 @@
+{
+  "name": "forum-api",
+  "version": "1.0.0",
+  "description": "Forum API - Garuda Game Discussion Platform",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "migrate": "node --require dotenv/config node_modules/.bin/node-pg-migrate up",
+    "migrate:test": "NODE_ENV=test node --require dotenv/config node_modules/.bin/node-pg-migrate -m migrations up",
+    "migrate:down": "node --require dotenv/config node_modules/.bin/node-pg-migrate down"
+  },
+  "dependencies": {
+    "@hapi/hapi": "^21.3.2",
+    "@hapi/jwt": "^3.0.0",
+    "bcrypt": "^6.0.0",
+    "dotenv": "^16.3.1",
+    "nanoid": "^3.3.6",
+    "pg": "^8.11.3"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "node-pg-migrate": "^6.2.2",
+    "nodemon": "^3.0.2"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "coveragePathIgnorePatterns": [
+      "/node_modules/"
+    ],
+    "collectCoverage": true,
+    "coverageProvider": "v8",
+    "testMatch": [
+      "**/_test/**/*.test.js",
+      "**/tests/**/*.test.js"
+    ],
+    "maxWorkers": 1
+  }
+}
