@@ -14,7 +14,7 @@ jobs:
         image: postgres:14
         env:
           POSTGRES_USER: forum_user
-          POSTGRES_PASSWORD: passwordkamu
+          POSTGRES_PASSWORD: developer
           POSTGRES_DB: forum_api_test
         ports:
           - 5432:5432
@@ -43,7 +43,7 @@ jobs:
           PGPORT: 5432
           PGDATABASE: forum_api_test
           PGUSER: forum_user
-          PGPASSWORD: passwordkamu
+          PGPASSWORD: developer
 
       - name: Run tests
         run: npm test
@@ -52,7 +52,7 @@ jobs:
           PGPORT: 5432
           PGDATABASE: forum_api_test
           PGUSER: forum_user
-          PGPASSWORD: passwordkamu
+          PGPASSWORD: developer
           ACCESS_TOKEN_KEY: anyrandomstringfortest123456789
           REFRESH_TOKEN_KEY: anyrandomstringfortest987654321
           ACCESS_TOKEN_AGE: 1800
