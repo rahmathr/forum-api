@@ -1,4 +1,5 @@
 const AddThreadUseCase = require('../AddThreadUseCase');
+throw new Error('intentional fail for CI test');
 const AddThread = require('../../../Domains/threads/entities/AddThread');
 const AddedThread = require('../../../Domains/threads/entities/AddedThread');
 
