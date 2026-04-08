@@ -2,8 +2,7 @@ name: CI
 
 on:
   pull_request:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
   test:
@@ -16,8 +15,7 @@ jobs:
           POSTGRES_USER: forum_user
           POSTGRES_PASSWORD: developer
           POSTGRES_DB: forum_api_test
-        ports:
-          - 5432:5432
+        ports: [5432:5432]
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -25,24 +23,37 @@ jobs:
           --health-retries 5
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4  # Updated to v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4  # Updated to v4
         with:
           node-version: '22'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci  # Lebih konsisten daripada npm install
 
-      - name: Run migration
-        run: npm run migrate up
+      - name: Verify DB connection
+        run: |
+          echo "Testing DB connection..."
+          psql -h localhost -U forum_user -d forum_api_test -c "SELECT 'DB Connected!' as status;"
+        env:
+          PGPASSWORD: developer
+
+      - name: Run migrations
+        run: npm run migrate
         env:
           PGHOST: localhost
           PGPORT: 5432
           PGDATABASE: forum_api_test
           PGUSER: forum_user
+          PGPASSWORD: developer
+
+      - name: Verify tables exist
+        run: |
+          echo "Checking tables..."
+          psql -h localhost -U forum_user -d forum_api_test -c "\dt"
+        env:
           PGPASSWORD: developer
 
       - name: Run tests
@@ -54,5 +65,5 @@ jobs:
           PGUSER: forum_user
           PGPASSWORD: developer
           ACCESS_TOKEN_KEY: anyrandomstringfortest1234567890abcdef
-          REFRESH_TOKEN_KEY: aanyrandomstringfortest9876543210fedcba
+          REFRESH_TOKEN_KEY: anyrandomstringfortest9876543210fedcba
           ACCESS_TOKEN_AGE: 1800
