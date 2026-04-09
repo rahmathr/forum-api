@@ -6,6 +6,7 @@ const authentications = require('../../Interfaces/http/api/authentications');
 const threads = require('../../Interfaces/http/api/threads');
 const comments = require('../../Interfaces/http/api/comments');
 const replies = require('../../Interfaces/http/api/replies');
+const likes = require('../../Interfaces/http/api/likes');
 
 const NotFoundError = require('../../Commons/exceptions/NotFoundError');
 const AuthorizationError = require('../../Commons/exceptions/AuthorizationError');
@@ -39,7 +40,7 @@ const createServer = async (container) => {
 
   server.app.container = container;
 
-  await server.register([users, authentications, threads, comments, replies]);
+  await server.register([users, authentications, threads, comments, replies, likes]);
 
   server.ext('onPreResponse', (request, h) => {
     const { response } = request;
