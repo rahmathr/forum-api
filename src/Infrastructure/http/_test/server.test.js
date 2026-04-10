@@ -15,6 +15,7 @@ const AuthenticationRepositoryPostgres = require('../../repositories/Authenticat
 const ThreadRepositoryPostgres = require('../../repositories/ThreadRepositoryPostgres');
 const CommentRepositoryPostgres = require('../../repositories/CommentRepositoryPostgres');
 const ReplyRepositoryPostgres = require('../../repositories/ReplyRepositoryPostgres');
+const LikeRepositoryPostgres = require('../../repositories/LikeRepositoryPostgres');
 const BcryptPasswordHash = require('../../security/BcryptPasswordHash');
 const JwtTokenManager = require('../../security/JwtTokenManager');
 
@@ -28,6 +29,7 @@ const AddCommentUseCase = require('../../../Applications/use_case/AddCommentUseC
 const DeleteCommentUseCase = require('../../../Applications/use_case/DeleteCommentUseCase');
 const AddReplyUseCase = require('../../../Applications/use_case/AddReplyUseCase');
 const DeleteReplyUseCase = require('../../../Applications/use_case/DeleteReplyUseCase');
+const ToggleLikeUseCase = require('../../../Applications/use_case/ToggleLikeUseCase');
 
 const buildTestContainer = () => {
   const userRepository = new UserRepositoryPostgres(pool, nanoid);
@@ -35,6 +37,7 @@ const buildTestContainer = () => {
   const threadRepository = new ThreadRepositoryPostgres(pool, nanoid);
   const commentRepository = new CommentRepositoryPostgres(pool, nanoid);
   const replyRepository = new ReplyRepositoryPostgres(pool, nanoid);
+  const likeRepository = new LikeRepositoryPostgres(pool, nanoid);
   const passwordHash = new BcryptPasswordHash(bcrypt);
   const authenticationTokenManager = new JwtTokenManager(Jwt);
 
@@ -44,11 +47,12 @@ const buildTestContainer = () => {
     [LogoutUserUseCase.name]: new LogoutUserUseCase({ authenticationRepository }),
     [RefreshAuthenticationUseCase.name]: new RefreshAuthenticationUseCase({ authenticationRepository, authenticationTokenManager }),
     [AddThreadUseCase.name]: new AddThreadUseCase({ threadRepository }),
-    [GetThreadDetailUseCase.name]: new GetThreadDetailUseCase({ threadRepository, commentRepository, replyRepository }),
+    [GetThreadDetailUseCase.name]: new GetThreadDetailUseCase({ threadRepository, commentRepository, replyRepository, likeRepository }),
     [AddCommentUseCase.name]: new AddCommentUseCase({ commentRepository, threadRepository }),
     [DeleteCommentUseCase.name]: new DeleteCommentUseCase({ commentRepository, threadRepository }),
     [AddReplyUseCase.name]: new AddReplyUseCase({ replyRepository, commentRepository, threadRepository }),
     [DeleteReplyUseCase.name]: new DeleteReplyUseCase({ replyRepository, commentRepository, threadRepository }),
+    [ToggleLikeUseCase.name]: new ToggleLikeUseCase({ likeRepository, commentRepository, threadRepository }),
   };
   return { getInstance: (name) => instances[name] };
 };
