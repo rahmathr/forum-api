@@ -3,31 +3,40 @@ const LogoutUserUseCase = require('../../../../Applications/use_case/LogoutUserU
 const RefreshAuthenticationUseCase = require('../../../../Applications/use_case/RefreshAuthenticationUseCase');
 
 const handler = {
-  async postAuthenticationHandler(request, h) {
-    const loginUserUseCase = request.server.app.container.getInstance(LoginUserUseCase.name);
-    const { accessToken, refreshToken } = await loginUserUseCase.execute(request.payload);
-
-    return h.response({
-      status: 'success',
-      data: { accessToken, refreshToken },
-    }).code(201);
+  async postAuthenticationHandler(req, res, next) {
+    try {
+      const loginUserUseCase = req.container.getInstance(LoginUserUseCase.name);
+      const { accessToken, refreshToken } = await loginUserUseCase.execute(req.body);
+      return res.status(201).json({
+        status: 'success',
+        data: { accessToken, refreshToken },
+      });
+    } catch (err) {
+      next(err);
+    }
   },
 
-  async putAuthenticationHandler(request) {
-    const refreshAuthenticationUseCase = request.server.app.container.getInstance(RefreshAuthenticationUseCase.name);
-    const accessToken = await refreshAuthenticationUseCase.execute(request.payload);
-
-    return {
-      status: 'success',
-      data: { accessToken },
-    };
+  async putAuthenticationHandler(req, res, next) {
+    try {
+      const refreshAuthenticationUseCase = req.container.getInstance(RefreshAuthenticationUseCase.name);
+      const accessToken = await refreshAuthenticationUseCase.execute(req.body);
+      return res.status(200).json({
+        status: 'success',
+        data: { accessToken },
+      });
+    } catch (err) {
+      next(err);
+    }
   },
 
-  async deleteAuthenticationHandler(request) {
-    const logoutUserUseCase = request.server.app.container.getInstance(LogoutUserUseCase.name);
-    await logoutUserUseCase.execute(request.payload);
-
-    return { status: 'success' };
+  async deleteAuthenticationHandler(req, res, next) {
+    try {
+      const logoutUserUseCase = req.container.getInstance(LogoutUserUseCase.name);
+      await logoutUserUseCase.execute(req.body);
+      return res.status(200).json({ status: 'success' });
+    } catch (err) {
+      next(err);
+    }
   },
 };
 

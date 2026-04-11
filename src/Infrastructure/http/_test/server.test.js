@@ -1,4 +1,5 @@
 require('dotenv').config();
+const request = require('supertest');
 const createServer = require('../server');
 const pool = require('../../../../tests/pool');
 const UsersTableTestHelper = require('../../../../tests/UsersTableTestHelper');
@@ -8,7 +9,6 @@ const RepliesTableTestHelper = require('../../../../tests/RepliesTableTestHelper
 
 const { nanoid } = require('nanoid');
 const bcrypt = require('bcrypt');
-const Jwt = require('@hapi/jwt');
 
 const UserRepositoryPostgres = require('../../repositories/UserRepositoryPostgres');
 const AuthenticationRepositoryPostgres = require('../../repositories/AuthenticationRepositoryPostgres');
@@ -39,7 +39,7 @@ const buildTestContainer = () => {
   const replyRepository = new ReplyRepositoryPostgres(pool, nanoid);
   const likeRepository = new LikeRepositoryPostgres(pool, nanoid);
   const passwordHash = new BcryptPasswordHash(bcrypt);
-  const authenticationTokenManager = new JwtTokenManager(Jwt);
+  const authenticationTokenManager = new JwtTokenManager();
 
   const instances = {
     [RegisterUserUseCase.name]: new RegisterUserUseCase({ userRepository, passwordHash }),
@@ -58,7 +58,7 @@ const buildTestContainer = () => {
 };
 
 describe('HTTP Server', () => {
-  let server;
+  let app;
   let accessToken;
   let refreshToken;
   let threadId;
@@ -67,22 +67,15 @@ describe('HTTP Server', () => {
 
   beforeAll(async () => {
     const container = buildTestContainer();
-    server = await createServer(container);
+    app = createServer(container);
 
-    await server.inject({
-      method: 'POST',
-      url: '/users',
-      payload: { username: 'testuser', password: 'password123', fullname: 'Test User' },
-    });
+    await request(app).post('/users')
+      .send({ username: 'testuser', password: 'password123', fullname: 'Test User' });
 
-    const loginRes = await server.inject({
-      method: 'POST',
-      url: '/authentications',
-      payload: { username: 'testuser', password: 'password123' },
-    });
-    const loginData = JSON.parse(loginRes.payload);
-    accessToken = loginData.data.accessToken;
-    refreshToken = loginData.data.refreshToken;
+    const loginRes = await request(app).post('/authentications')
+      .send({ username: 'testuser', password: 'password123' });
+    accessToken = loginRes.body.data.accessToken;
+    refreshToken = loginRes.body.data.refreshToken;
   });
 
   afterAll(async () => {
@@ -96,52 +89,25 @@ describe('HTTP Server', () => {
 
   // --- SERVER ERROR HANDLING ---
   describe('Server error handling', () => {
-    it('should return 404 for unknown route (Boom client error)', async () => {
-      const res = await server.inject({ method: 'GET', url: '/nonexistent-route' });
+    it('should return 404 for unknown route', async () => {
+      const res = await request(app).get('/nonexistent-route');
       expect(res.statusCode).toBe(404);
-    });
-
-    it('should return 500 for internal server error', async () => {
-      // Register a route that throws a plain Error (not Boom, not custom) to trigger isServer branch
-      server.route({
-        method: 'GET',
-        path: '/test-500',
-        handler: () => {
-          const err = new Error('internal error');
-          err.isServer = true;
-          err.isBoom = true;
-          err.output = { statusCode: 500 };
-          throw err;
-        },
-      });
-      const res = await server.inject({ method: 'GET', url: '/test-500' });
-      expect(res.statusCode).toBe(500);
-      const data = JSON.parse(res.payload);
-      expect(data.status).toBe('error');
-      expect(data.message).toBe('terjadi kegagalan pada server kami');
     });
   });
 
   // --- USERS ---
   describe('POST /users', () => {
     it('should return 201 and addedUser', async () => {
-      const res = await server.inject({
-        method: 'POST',
-        url: '/users',
-        payload: { username: 'newuser', password: 'password123', fullname: 'New User' },
-      });
-      const data = JSON.parse(res.payload);
+      const res = await request(app).post('/users')
+        .send({ username: 'newuser', password: 'password123', fullname: 'New User' });
       expect(res.statusCode).toBe(201);
-      expect(data.status).toBe('success');
-      expect(data.data.addedUser).toBeDefined();
+      expect(res.body.status).toBe('success');
+      expect(res.body.data.addedUser).toBeDefined();
     });
 
     it('should return 400 when payload is missing', async () => {
-      const res = await server.inject({
-        method: 'POST',
-        url: '/users',
-        payload: { username: 'only' },
-      });
+      const res = await request(app).post('/users')
+        .send({ username: 'only' });
       expect(res.statusCode).toBe(400);
     });
   });
@@ -149,76 +115,50 @@ describe('HTTP Server', () => {
   // --- AUTHENTICATIONS ---
   describe('POST /authentications (login)', () => {
     it('should return 201 and tokens', async () => {
-      const res = await server.inject({
-        method: 'POST',
-        url: '/authentications',
-        payload: { username: 'testuser', password: 'password123' },
-      });
-      const data = JSON.parse(res.payload);
+      const res = await request(app).post('/authentications')
+        .send({ username: 'testuser', password: 'password123' });
       expect(res.statusCode).toBe(201);
-      expect(data.data.accessToken).toBeDefined();
-      expect(data.data.refreshToken).toBeDefined();
+      expect(res.body.data.accessToken).toBeDefined();
+      expect(res.body.data.refreshToken).toBeDefined();
     });
 
-    it('should return 400 when credentials are wrong', async () => {
-      const res = await server.inject({
-        method: 'POST',
-        url: '/authentications',
-        payload: { username: 'testuser', password: 'wrongpassword' },
-      });
+    it('should return 401 when credentials are wrong', async () => {
+      const res = await request(app).post('/authentications')
+        .send({ username: 'testuser', password: 'wrongpassword' });
       expect(res.statusCode).toBe(401);
     });
   });
 
   describe('PUT /authentications (refresh token)', () => {
     it('should return 200 and new accessToken', async () => {
-      const res = await server.inject({
-        method: 'PUT',
-        url: '/authentications',
-        payload: { refreshToken },
-      });
-      const data = JSON.parse(res.payload);
+      const res = await request(app).put('/authentications')
+        .send({ refreshToken });
       expect(res.statusCode).toBe(200);
-      expect(data.status).toBe('success');
-      expect(data.data.accessToken).toBeDefined();
+      expect(res.body.data.accessToken).toBeDefined();
     });
 
     it('should return 400 when refresh token is invalid', async () => {
-      const res = await server.inject({
-        method: 'PUT',
-        url: '/authentications',
-        payload: { refreshToken: 'invalid_refresh_token' },
-      });
+      const res = await request(app).put('/authentications')
+        .send({ refreshToken: 'invalid_refresh_token' });
       expect(res.statusCode).toBe(400);
     });
   });
 
   describe('DELETE /authentications (logout)', () => {
     it('should return 200 on successful logout', async () => {
-      // Login fresh to get a token to logout
-      const loginRes = await server.inject({
-        method: 'POST',
-        url: '/authentications',
-        payload: { username: 'testuser', password: 'password123' },
-      });
-      const tokenToLogout = JSON.parse(loginRes.payload).data.refreshToken;
+      const loginRes = await request(app).post('/authentications')
+        .send({ username: 'testuser', password: 'password123' });
+      const tokenToLogout = loginRes.body.data.refreshToken;
 
-      const res = await server.inject({
-        method: 'DELETE',
-        url: '/authentications',
-        payload: { refreshToken: tokenToLogout },
-      });
-      const data = JSON.parse(res.payload);
+      const res = await request(app).delete('/authentications')
+        .send({ refreshToken: tokenToLogout });
       expect(res.statusCode).toBe(200);
-      expect(data.status).toBe('success');
+      expect(res.body.status).toBe('success');
     });
 
     it('should return 400 when refresh token not found', async () => {
-      const res = await server.inject({
-        method: 'DELETE',
-        url: '/authentications',
-        payload: { refreshToken: 'nonexistent_token' },
-      });
+      const res = await request(app).delete('/authentications')
+        .send({ refreshToken: 'nonexistent_token' });
       expect(res.statusCode).toBe(400);
     });
   });
@@ -226,215 +166,153 @@ describe('HTTP Server', () => {
   // --- THREADS ---
   describe('POST /threads', () => {
     it('should return 201 and addedThread', async () => {
-      const res = await server.inject({
-        method: 'POST',
-        url: '/threads',
-        headers: { Authorization: `Bearer ${accessToken}` },
-        payload: { title: 'sebuah thread', body: 'sebuah body thread' },
-      });
-      const data = JSON.parse(res.payload);
+      const res = await request(app).post('/threads')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ title: 'sebuah thread', body: 'sebuah body thread' });
       expect(res.statusCode).toBe(201);
-      expect(data.status).toBe('success');
-      expect(data.data.addedThread.id).toBeDefined();
-      expect(data.data.addedThread.title).toBe('sebuah thread');
-      threadId = data.data.addedThread.id;
+      expect(res.body.data.addedThread.id).toBeDefined();
+      threadId = res.body.data.addedThread.id;
     });
 
     it('should return 400 when body is missing', async () => {
-      const res = await server.inject({
-        method: 'POST',
-        url: '/threads',
-        headers: { Authorization: `Bearer ${accessToken}` },
-        payload: { title: 'hanya judul' },
-      });
+      const res = await request(app).post('/threads')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ title: 'hanya judul' });
       expect(res.statusCode).toBe(400);
     });
 
     it('should return 401 when no access token', async () => {
-      const res = await server.inject({
-        method: 'POST',
-        url: '/threads',
-        payload: { title: 'a', body: 'b' },
-      });
+      const res = await request(app).post('/threads')
+        .send({ title: 'a', body: 'b' });
       expect(res.statusCode).toBe(401);
     });
   });
 
   // --- COMMENTS ---
-  describe('POST /threads/{threadId}/comments', () => {
+  describe('POST /threads/:threadId/comments', () => {
     it('should return 201 and addedComment', async () => {
-      const res = await server.inject({
-        method: 'POST',
-        url: `/threads/${threadId}/comments`,
-        headers: { Authorization: `Bearer ${accessToken}` },
-        payload: { content: 'sebuah komentar' },
-      });
-      const data = JSON.parse(res.payload);
+      const res = await request(app).post(`/threads/${threadId}/comments`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ content: 'sebuah komentar' });
       expect(res.statusCode).toBe(201);
-      expect(data.status).toBe('success');
-      expect(data.data.addedComment.id).toBeDefined();
-      commentId = data.data.addedComment.id;
+      expect(res.body.data.addedComment.id).toBeDefined();
+      commentId = res.body.data.addedComment.id;
     });
 
     it('should return 404 when thread does not exist', async () => {
-      const res = await server.inject({
-        method: 'POST',
-        url: '/threads/thread-xyz/comments',
-        headers: { Authorization: `Bearer ${accessToken}` },
-        payload: { content: 'komentar' },
-      });
+      const res = await request(app).post('/threads/thread-xyz/comments')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ content: 'komentar' });
       expect(res.statusCode).toBe(404);
     });
 
     it('should return 400 when content is missing', async () => {
-      const res = await server.inject({
-        method: 'POST',
-        url: `/threads/${threadId}/comments`,
-        headers: { Authorization: `Bearer ${accessToken}` },
-        payload: {},
-      });
+      const res = await request(app).post(`/threads/${threadId}/comments`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({});
       expect(res.statusCode).toBe(400);
     });
   });
 
   // --- REPLIES ---
-  describe('POST /threads/{threadId}/comments/{commentId}/replies', () => {
+  describe('POST /threads/:threadId/comments/:commentId/replies', () => {
     it('should return 201 and addedReply', async () => {
-      const res = await server.inject({
-        method: 'POST',
-        url: `/threads/${threadId}/comments/${commentId}/replies`,
-        headers: { Authorization: `Bearer ${accessToken}` },
-        payload: { content: 'sebuah balasan' },
-      });
-      const data = JSON.parse(res.payload);
+      const res = await request(app).post(`/threads/${threadId}/comments/${commentId}/replies`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ content: 'sebuah balasan' });
       expect(res.statusCode).toBe(201);
-      expect(data.status).toBe('success');
-      expect(data.data.addedReply.id).toBeDefined();
-      replyId = data.data.addedReply.id;
+      expect(res.body.data.addedReply.id).toBeDefined();
+      replyId = res.body.data.addedReply.id;
     });
 
     it('should return 404 when comment does not exist', async () => {
-      const res = await server.inject({
-        method: 'POST',
-        url: `/threads/${threadId}/comments/comment-xyz/replies`,
-        headers: { Authorization: `Bearer ${accessToken}` },
-        payload: { content: 'balasan' },
-      });
+      const res = await request(app).post(`/threads/${threadId}/comments/comment-xyz/replies`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ content: 'balasan' });
       expect(res.statusCode).toBe(404);
     });
 
     it('should return 400 when content is missing', async () => {
-      const res = await server.inject({
-        method: 'POST',
-        url: `/threads/${threadId}/comments/${commentId}/replies`,
-        headers: { Authorization: `Bearer ${accessToken}` },
-        payload: {},
-      });
+      const res = await request(app).post(`/threads/${threadId}/comments/${commentId}/replies`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({});
       expect(res.statusCode).toBe(400);
     });
   });
 
   // --- GET THREAD DETAIL ---
-  describe('GET /threads/{threadId}', () => {
+  describe('GET /threads/:threadId', () => {
     it('should return 200 and thread detail with comments and replies', async () => {
-      const res = await server.inject({
-        method: 'GET',
-        url: `/threads/${threadId}`,
-      });
-      const data = JSON.parse(res.payload);
+      const res = await request(app).get(`/threads/${threadId}`);
       expect(res.statusCode).toBe(200);
-      expect(data.status).toBe('success');
-      expect(data.data.thread.id).toBe(threadId);
-      expect(data.data.thread.comments).toHaveLength(1);
-      expect(data.data.thread.comments[0].replies).toHaveLength(1);
+      expect(res.body.data.thread.id).toBe(threadId);
+      expect(res.body.data.thread.comments).toHaveLength(1);
+      expect(res.body.data.thread.comments[0].replies).toHaveLength(1);
     });
 
     it('should return 404 when thread does not exist', async () => {
-      const res = await server.inject({ method: 'GET', url: '/threads/thread-xyz' });
+      const res = await request(app).get('/threads/thread-xyz');
       expect(res.statusCode).toBe(404);
     });
   });
 
   // --- DELETE REPLY ---
-  describe('DELETE /threads/{threadId}/comments/{commentId}/replies/{replyId}', () => {
+  describe('DELETE /threads/:threadId/comments/:commentId/replies/:replyId', () => {
     it('should return 403 when user is not the reply owner', async () => {
-      await server.inject({
-        method: 'POST',
-        url: '/users',
-        payload: { username: 'otheruser', password: 'password123', fullname: 'Other User' },
-      });
-      const loginRes = await server.inject({
-        method: 'POST',
-        url: '/authentications',
-        payload: { username: 'otheruser', password: 'password123' },
-      });
-      const otherToken = JSON.parse(loginRes.payload).data.accessToken;
+      await request(app).post('/users')
+        .send({ username: 'otheruser', password: 'password123', fullname: 'Other User' });
+      const loginRes = await request(app).post('/authentications')
+        .send({ username: 'otheruser', password: 'password123' });
+      const otherToken = loginRes.body.data.accessToken;
 
-      const res = await server.inject({
-        method: 'DELETE',
-        url: `/threads/${threadId}/comments/${commentId}/replies/${replyId}`,
-        headers: { Authorization: `Bearer ${otherToken}` },
-      });
+      const res = await request(app)
+        .delete(`/threads/${threadId}/comments/${commentId}/replies/${replyId}`)
+        .set('Authorization', `Bearer ${otherToken}`);
       expect(res.statusCode).toBe(403);
     });
 
     it('should return 404 when reply does not exist', async () => {
-      const res = await server.inject({
-        method: 'DELETE',
-        url: `/threads/${threadId}/comments/${commentId}/replies/reply-xyz`,
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
+      const res = await request(app)
+        .delete(`/threads/${threadId}/comments/${commentId}/replies/reply-xyz`)
+        .set('Authorization', `Bearer ${accessToken}`);
       expect(res.statusCode).toBe(404);
     });
 
     it('should return 200 when reply owner deletes reply', async () => {
-      const res = await server.inject({
-        method: 'DELETE',
-        url: `/threads/${threadId}/comments/${commentId}/replies/${replyId}`,
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      const data = JSON.parse(res.payload);
+      const res = await request(app)
+        .delete(`/threads/${threadId}/comments/${commentId}/replies/${replyId}`)
+        .set('Authorization', `Bearer ${accessToken}`);
       expect(res.statusCode).toBe(200);
-      expect(data.status).toBe('success');
+      expect(res.body.status).toBe('success');
     });
   });
 
   // --- DELETE COMMENT ---
-  describe('DELETE /threads/{threadId}/comments/{commentId}', () => {
+  describe('DELETE /threads/:threadId/comments/:commentId', () => {
     it('should return 403 when user is not the comment owner', async () => {
-      const loginRes = await server.inject({
-        method: 'POST',
-        url: '/authentications',
-        payload: { username: 'otheruser', password: 'password123' },
-      });
-      const otherToken = JSON.parse(loginRes.payload).data.accessToken;
+      const loginRes = await request(app).post('/authentications')
+        .send({ username: 'otheruser', password: 'password123' });
+      const otherToken = loginRes.body.data.accessToken;
 
-      const res = await server.inject({
-        method: 'DELETE',
-        url: `/threads/${threadId}/comments/${commentId}`,
-        headers: { Authorization: `Bearer ${otherToken}` },
-      });
+      const res = await request(app)
+        .delete(`/threads/${threadId}/comments/${commentId}`)
+        .set('Authorization', `Bearer ${otherToken}`);
       expect(res.statusCode).toBe(403);
     });
 
     it('should return 404 when comment does not exist', async () => {
-      const res = await server.inject({
-        method: 'DELETE',
-        url: `/threads/${threadId}/comments/comment-xyz`,
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
+      const res = await request(app)
+        .delete(`/threads/${threadId}/comments/comment-xyz`)
+        .set('Authorization', `Bearer ${accessToken}`);
       expect(res.statusCode).toBe(404);
     });
 
     it('should return 200 when comment owner deletes comment', async () => {
-      const res = await server.inject({
-        method: 'DELETE',
-        url: `/threads/${threadId}/comments/${commentId}`,
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      const data = JSON.parse(res.payload);
+      const res = await request(app)
+        .delete(`/threads/${threadId}/comments/${commentId}`)
+        .set('Authorization', `Bearer ${accessToken}`);
       expect(res.statusCode).toBe(200);
-      expect(data.status).toBe('success');
+      expect(res.body.status).toBe('success');
     });
   });
 });

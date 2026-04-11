@@ -1,27 +1,35 @@
 const AddThreadUseCase = require('../../../../Applications/use_case/AddThreadUseCase');
 const GetThreadDetailUseCase = require('../../../../Applications/use_case/GetThreadDetailUseCase');
+const AuthenticationError = require('../../../../Commons/exceptions/AuthenticationError');
 
 const handler = {
-  async postThreadHandler(request, h) {
-    const { id: owner } = request.auth.credentials;
-    const addThreadUseCase = request.server.app.container.getInstance(AddThreadUseCase.name);
-    const addedThread = await addThreadUseCase.execute({ ...request.payload, owner });
-
-    return h.response({
-      status: 'success',
-      data: { addedThread },
-    }).code(201);
+  async postThreadHandler(req, res, next) {
+    try {
+      if (!req.auth) throw new AuthenticationError('Missing authentication');
+      const { id: owner } = req.auth.credentials;
+      const addThreadUseCase = req.container.getInstance(AddThreadUseCase.name);
+      const addedThread = await addThreadUseCase.execute({ ...req.body, owner });
+      return res.status(201).json({
+        status: 'success',
+        data: { addedThread },
+      });
+    } catch (err) {
+      next(err);
+    }
   },
 
-  async getThreadDetailHandler(request) {
-    const { threadId } = request.params;
-    const getThreadDetailUseCase = request.server.app.container.getInstance(GetThreadDetailUseCase.name);
-    const thread = await getThreadDetailUseCase.execute(threadId);
-
-    return {
-      status: 'success',
-      data: { thread },
-    };
+  async getThreadDetailHandler(req, res, next) {
+    try {
+      const { threadId } = req.params;
+      const getThreadDetailUseCase = req.container.getInstance(GetThreadDetailUseCase.name);
+      const thread = await getThreadDetailUseCase.execute(threadId);
+      return res.status(200).json({
+        status: 'success',
+        data: { thread },
+      });
+    } catch (err) {
+      next(err);
+    }
   },
 };
 

@@ -1,6 +1,6 @@
 const { nanoid } = require('nanoid');
 const bcrypt = require('bcrypt');
-const Jwt = require('@hapi/jwt');
+const Jwt = require('jsonwebtoken');
 const pool = require('../database/postgres/pool/pool');
 const UserRepositoryPostgres = require('../repositories/UserRepositoryPostgres');
 const AuthenticationRepositoryPostgres = require('../repositories/AuthenticationRepositoryPostgres');
@@ -32,7 +32,7 @@ const likeRepository = new LikeRepositoryPostgres(pool, nanoid);
 
 // Services
 const passwordHash = new BcryptPasswordHash(bcrypt);
-const authenticationTokenManager = new JwtTokenManager(Jwt);
+const authenticationTokenManager = new JwtTokenManager();
 
 const instances = {
   [RegisterUserUseCase.name]: new RegisterUserUseCase({ userRepository, passwordHash }),

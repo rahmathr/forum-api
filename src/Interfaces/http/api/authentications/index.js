@@ -1,25 +1,9 @@
+const express = require('express');
 const handler = require('./handler');
 
-module.exports = {
-  name: 'authentications',
-  version: '1.0.0',
-  register: async (server) => {
-    server.route([
-      {
-        method: 'POST',
-        path: '/authentications',
-        handler: handler.postAuthenticationHandler,
-      },
-      {
-        method: 'PUT',
-        path: '/authentications',
-        handler: handler.putAuthenticationHandler,
-      },
-      {
-        method: 'DELETE',
-        path: '/authentications',
-        handler: handler.deleteAuthenticationHandler,
-      },
-    ]);
-  },
-};
+const router = express.Router();
+router.post('/authentications', handler.postAuthenticationHandler);
+router.put('/authentications', handler.putAuthenticationHandler);
+router.delete('/authentications', handler.deleteAuthenticationHandler);
+
+module.exports = router;

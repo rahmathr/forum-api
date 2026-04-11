@@ -1,15 +1,7 @@
+const express = require('express');
 const handler = require('./handler');
 
-module.exports = {
-  name: 'users',
-  version: '1.0.0',
-  register: async (server) => {
-    server.route([
-      {
-        method: 'POST',
-        path: '/users',
-        handler: handler.postUserHandler,
-      },
-    ]);
-  },
-};
+const router = express.Router();
+router.post('/users', handler.postUserHandler);
+
+module.exports = router;

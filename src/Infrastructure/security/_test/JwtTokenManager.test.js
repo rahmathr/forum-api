@@ -1,9 +1,8 @@
-const Jwt = require('@hapi/jwt');
 const JwtTokenManager = require('../JwtTokenManager');
 const InvariantError = require('../../../Commons/exceptions/InvariantError');
 
 describe('JwtTokenManager', () => {
-  const jwtTokenManager = new JwtTokenManager(Jwt);
+  const jwtTokenManager = new JwtTokenManager();
 
   describe('createAccessToken', () => {
     it('should create accessToken correctly', async () => {

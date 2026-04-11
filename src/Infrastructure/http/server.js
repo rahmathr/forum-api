@@ -1,5 +1,5 @@
-const Hapi = require('@hapi/hapi');
-const Jwt = require('@hapi/jwt');
+const express = require('express');
+const jwt = require('jsonwebtoken');
 
 const users = require('../../Interfaces/http/api/users');
 const authentications = require('../../Interfaces/http/api/authentications');
@@ -13,61 +13,57 @@ const AuthorizationError = require('../../Commons/exceptions/AuthorizationError'
 const AuthenticationError = require('../../Commons/exceptions/AuthenticationError');
 const InvariantError = require('../../Commons/exceptions/InvariantError');
 
-const createServer = async (container) => {
-  const server = Hapi.server({
-    host: process.env.HOST,
-    port: process.env.PORT,
-    routes: {
-      cors: { origin: ['*'] },
-    },
-  });
+const createServer = (container) => {
+  const app = express();
+  app.use(express.json());
 
-  await server.register([Jwt]);
-
-  server.auth.strategy('forumapi_jwt', 'jwt', {
-    keys: process.env.ACCESS_TOKEN_KEY,
-    verify: {
-      aud: false,
-      iss: false,
-      sub: false,
-      maxAgeSec: process.env.ACCESS_TOKEN_AGE,
-    },
-    validate: (artifacts) => ({
-      isValid: true,
-      credentials: { id: artifacts.decoded.payload.id },
-    }),
-  });
-
-  server.app.container = container;
-
-  await server.register([users, authentications, threads, comments, replies, likes]);
-
-  server.ext('onPreResponse', (request, h) => {
-    const { response } = request;
-    if (response instanceof Error) {
-      if (response instanceof NotFoundError || response instanceof AuthorizationError ||
-          response instanceof AuthenticationError || response instanceof InvariantError) {
-        return h.response({
-          status: 'fail',
-          message: response.message,
-        }).code(response.statusCode);
+  // Auth middleware
+  app.use((req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.slice(7);
+      try {
+        const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_KEY);
+        req.auth = { credentials: { id: decoded.id } };
+      } catch {
+        req.auth = null;
       }
-      // Hapi native error (Boom)
-      if (response.isServer) {
-        /* istanbul ignore next */
-        if (process.env.NODE_ENV !== 'test') console.error(response);
-        return h.response({ status: 'error', message: 'terjadi kegagalan pada server kami' }).code(500);
-      }
-      // Boom client errors (e.g. 400 from Hapi validation)
-      return h.response({
-        status: 'fail',
-        message: response.message,
-      }).code(response.output.statusCode);
+    } else {
+      req.auth = null;
     }
-    return h.continue;
+    next();
   });
 
-  return server;
+  app.use((req, res, next) => {
+    req.container = container;
+    next();
+  });
+
+  // Routes
+  app.use(users);
+  app.use(authentications);
+  app.use(threads);
+  app.use(comments);
+  app.use(replies);
+  app.use(likes);
+
+  // Error handler
+  app.use((err, req, res, next) => {
+    if (err instanceof NotFoundError || err instanceof AuthorizationError ||
+        err instanceof AuthenticationError || err instanceof InvariantError) {
+      return res.status(err.statusCode).json({
+        status: 'fail',
+        message: err.message,
+      });
+    }
+    if (process.env.NODE_ENV !== 'test') console.error(err);
+    return res.status(500).json({
+      status: 'error',
+      message: 'terjadi kegagalan pada server kami',
+    });
+  });
+
+  return app;
 };
 
 module.exports = createServer;
