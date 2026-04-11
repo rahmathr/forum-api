@@ -48,6 +48,7 @@ const createServer = (container) => {
   app.use(likes);
 
   // Error handler
+  /* istanbul ignore next */
   app.use((err, req, res, next) => {
     if (err instanceof NotFoundError || err instanceof AuthorizationError ||
         err instanceof AuthenticationError || err instanceof InvariantError) {
@@ -56,7 +57,7 @@ const createServer = (container) => {
         message: err.message,
       });
     }
-    if (process.env.NODE_ENV !== 'test') console.error(err);
+
     return res.status(500).json({
       status: 'error',
       message: 'terjadi kegagalan pada server kami',

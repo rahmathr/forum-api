@@ -87,15 +87,20 @@ describe('HTTP Server', () => {
     await pool.end();
   });
 
-  // --- SERVER ERROR HANDLING ---
   describe('Server error handling', () => {
     it('should return 404 for unknown route', async () => {
       const res = await request(app).get('/nonexistent-route');
       expect(res.statusCode).toBe(404);
     });
+
+    it('should set auth to null when token is invalid', async () => {
+      const res = await request(app).post('/threads')
+        .set('Authorization', 'Bearer invalid_token')
+        .send({ title: 'a', body: 'b' });
+      expect(res.statusCode).toBe(401);
+    });
   });
 
-  // --- USERS ---
   describe('POST /users', () => {
     it('should return 201 and addedUser', async () => {
       const res = await request(app).post('/users')
@@ -112,7 +117,6 @@ describe('HTTP Server', () => {
     });
   });
 
-  // --- AUTHENTICATIONS ---
   describe('POST /authentications (login)', () => {
     it('should return 201 and tokens', async () => {
       const res = await request(app).post('/authentications')
@@ -149,7 +153,6 @@ describe('HTTP Server', () => {
       const loginRes = await request(app).post('/authentications')
         .send({ username: 'testuser', password: 'password123' });
       const tokenToLogout = loginRes.body.data.refreshToken;
-
       const res = await request(app).delete('/authentications')
         .send({ refreshToken: tokenToLogout });
       expect(res.statusCode).toBe(200);
@@ -163,7 +166,6 @@ describe('HTTP Server', () => {
     });
   });
 
-  // --- THREADS ---
   describe('POST /threads', () => {
     it('should return 201 and addedThread', async () => {
       const res = await request(app).post('/threads')
@@ -188,7 +190,6 @@ describe('HTTP Server', () => {
     });
   });
 
-  // --- COMMENTS ---
   describe('POST /threads/:threadId/comments', () => {
     it('should return 201 and addedComment', async () => {
       const res = await request(app).post(`/threads/${threadId}/comments`)
@@ -197,6 +198,12 @@ describe('HTTP Server', () => {
       expect(res.statusCode).toBe(201);
       expect(res.body.data.addedComment.id).toBeDefined();
       commentId = res.body.data.addedComment.id;
+    });
+
+    it('should return 401 when no authentication', async () => {
+      const res = await request(app).post(`/threads/${threadId}/comments`)
+        .send({ content: 'komentar' });
+      expect(res.statusCode).toBe(401);
     });
 
     it('should return 404 when thread does not exist', async () => {
@@ -214,7 +221,6 @@ describe('HTTP Server', () => {
     });
   });
 
-  // --- REPLIES ---
   describe('POST /threads/:threadId/comments/:commentId/replies', () => {
     it('should return 201 and addedReply', async () => {
       const res = await request(app).post(`/threads/${threadId}/comments/${commentId}/replies`)
@@ -223,6 +229,12 @@ describe('HTTP Server', () => {
       expect(res.statusCode).toBe(201);
       expect(res.body.data.addedReply.id).toBeDefined();
       replyId = res.body.data.addedReply.id;
+    });
+
+    it('should return 401 when no authentication', async () => {
+      const res = await request(app).post(`/threads/${threadId}/comments/${commentId}/replies`)
+        .send({ content: 'balasan' });
+      expect(res.statusCode).toBe(401);
     });
 
     it('should return 404 when comment does not exist', async () => {
@@ -240,7 +252,6 @@ describe('HTTP Server', () => {
     });
   });
 
-  // --- GET THREAD DETAIL ---
   describe('GET /threads/:threadId', () => {
     it('should return 200 and thread detail with comments and replies', async () => {
       const res = await request(app).get(`/threads/${threadId}`);
@@ -256,7 +267,22 @@ describe('HTTP Server', () => {
     });
   });
 
-  // --- DELETE REPLY ---
+  describe('PUT /threads/:threadId/comments/:commentId/likes', () => {
+    it('should return 200 when liking a comment', async () => {
+      const res = await request(app)
+        .put(`/threads/${threadId}/comments/${commentId}/likes`)
+        .set('Authorization', `Bearer ${accessToken}`);
+      expect(res.statusCode).toBe(200);
+      expect(res.body.status).toBe('success');
+    });
+
+    it('should return 401 when no authentication', async () => {
+      const res = await request(app)
+        .put(`/threads/${threadId}/comments/${commentId}/likes`);
+      expect(res.statusCode).toBe(401);
+    });
+  });
+
   describe('DELETE /threads/:threadId/comments/:commentId/replies/:replyId', () => {
     it('should return 403 when user is not the reply owner', async () => {
       await request(app).post('/users')
@@ -264,11 +290,16 @@ describe('HTTP Server', () => {
       const loginRes = await request(app).post('/authentications')
         .send({ username: 'otheruser', password: 'password123' });
       const otherToken = loginRes.body.data.accessToken;
-
       const res = await request(app)
         .delete(`/threads/${threadId}/comments/${commentId}/replies/${replyId}`)
         .set('Authorization', `Bearer ${otherToken}`);
       expect(res.statusCode).toBe(403);
+    });
+
+    it('should return 401 when no authentication', async () => {
+      const res = await request(app)
+        .delete(`/threads/${threadId}/comments/${commentId}/replies/${replyId}`);
+      expect(res.statusCode).toBe(401);
     });
 
     it('should return 404 when reply does not exist', async () => {
@@ -287,17 +318,21 @@ describe('HTTP Server', () => {
     });
   });
 
-  // --- DELETE COMMENT ---
   describe('DELETE /threads/:threadId/comments/:commentId', () => {
     it('should return 403 when user is not the comment owner', async () => {
       const loginRes = await request(app).post('/authentications')
         .send({ username: 'otheruser', password: 'password123' });
       const otherToken = loginRes.body.data.accessToken;
-
       const res = await request(app)
         .delete(`/threads/${threadId}/comments/${commentId}`)
         .set('Authorization', `Bearer ${otherToken}`);
       expect(res.statusCode).toBe(403);
+    });
+
+    it('should return 401 when no authentication', async () => {
+      const res = await request(app)
+        .delete(`/threads/${threadId}/comments/${commentId}`);
+      expect(res.statusCode).toBe(401);
     });
 
     it('should return 404 when comment does not exist', async () => {
